@@ -1,54 +1,91 @@
-const express = require('express');
-const axios = require('axios');
-const app = express();
+import React, { useState, useEffect } from 'react';
 
-app.use(express.json());
+const App = () => {
+  const [data, setData] = useState('');
+  const [voices, setVoices] = useState([]);
+  const [selectedVoice, setSelectedVoice] = useState('');
+  const [rate, setRate] = useState(1);
 
-// Dynamic Gesture Mapping Function
-function mapToGesture(flex1, flex2, flex3, flex4) {
-    const gestures = [
-        { name: 'Hello', conditions: [flex1 > 840, flex2 > 810, flex3 > 870, flex4 > 815] },
-        { name: 'Yes', conditions: [flex1 < 810, flex2 < 800, flex3 > 850, flex4 < 800] },
-        { name: 'No', conditions: [flex1 < 810, flex2 < 770, flex3 < 850, flex4 < 770] },
-        { name: 'Stop', conditions: [flex1 > 850, flex2 < 820, flex3 > 870, flex4 < 800] },
-        { name: 'Thank You', conditions: [flex1 < 800, flex2 < 770, flex3 < 850, flex4 < 770] }
-    ];
+  useEffect(() => {
+    fetchData();
+    loadVoices();
+  }, []);
 
-    for (const gesture of gestures) {
-        if (gesture.conditions.every(Boolean)) {
-            return gesture.name;
-        }
-    }
-    return 'I am Rohan';
-}
-
-// API Endpoint for Prediction
-app.post('/predict', async (req, res) => {
+  const fetchData = async () => {
     try {
-        const { flex1, flex2, flex3, flex4, ax, ay, az, gx, gy, gz } = req.body;
-
-        // Input Validation
-        if ([flex1, flex2, flex3, flex4, ax, ay, az, gx, gy, gz].some(value => value === undefined)) {
-            return res.status(400).json({ error: 'Missing or invalid sensor data' });
-        }
-
-        // Map to Gesture
-        const gesture = mapToGesture(flex1, flex2, flex3, flex4);
-
-        // Forward result to external website
-        const externalURL = req.query.url || 'http://example.com/result';
-        await axios.post(externalURL, { gesture, ax, ay, az, gx, gy, gz });
-        console.log(`Gesture and sensor data sent to external site: ${gesture}`);
-
-        res.json({ gesture });
+      const response = await fetch('http://localhost:5000/data');
+      const result = await response.json();
+      setData(result.gesture || 'No data available');
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+      console.error('Error fetching data:', error);
+      setData('Failed to fetch data.');
     }
-});
+  };
 
-// Start the Server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
+  const loadVoices = () => {
+    const voicesList = window.speechSynthesis.getVoices();
+    setVoices(voicesList);
+    if (voicesList.length) setSelectedVoice(voicesList[0].name);
+  };
+
+  const speakData = () => {
+    const speech = new SpeechSynthesisUtterance(data);
+    const voice = voices.find((v) => v.name === selectedVoice);
+    if (voice) speech.voice = voice;
+    speech.rate = rate;
+    window.speechSynthesis.speak(speech);
+  };
+
+  return (
+    <div className="p-10">
+      <h1 className="text-3xl font-bold mb-6">Text-to-Speech Converter</h1>
+      <p className="mb-4">Received Data: <strong>{data}</strong></p>
+      <button
+        onClick={fetchData}
+        className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
+      >
+        Fetch Data
+      </button>
+      <br />
+
+      <label className="block mb-2">Voice:</label>
+      <select
+        onChange={(e) => setSelectedVoice(e.target.value)}
+        value={selectedVoice}
+        className="border p-2 mb-4"
+      >
+        {voices.map((voice, index) => (
+          <option key={index} value={voice.name}>{voice.name} ({voice.lang})</option>
+        ))}
+      </select>
+
+      <label className="block mb-2">Speed:</label>
+      <input
+        type="range"
+        min="0.5"
+        max="2"
+        step="0.1"
+        value={rate}
+        onChange={(e) => setRate(Number(e.target.value))}
+        className="mb-4"
+      />
+      <span>{rate.toFixed(1)}x</span>
+
+      <br />
+      <button
+        onClick={speakData}
+        className="bg-green-500 text-white px-4 py-2 rounded mr-2"
+      >
+        Speak
+      </button>
+      <button
+        onClick={() => window.speechSynthesis.cancel()}
+        className="bg-red-500 text-white px-4 py-2 rounded"
+      >
+        Stop
+      </button>
+    </div>
+  );
+};
+
+export default App;
