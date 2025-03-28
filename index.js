@@ -13,7 +13,7 @@ const App = () => {
 
   const fetchData = async () => {
     try {
-      const response = await fetch('http://localhost:5000/data');
+      const response = await fetch('https://server-webk.onrender.com');
       const result = await response.json();
       setData(result.gesture || 'No data available');
     } catch (error) {
